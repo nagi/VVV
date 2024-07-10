@@ -1,6 +1,3 @@
-# Could be a git submodule later
-/vagrant
-
 # Stuff that pops up locally for me - @jeremyfelt
 *.sublime*
 .DS_Store
