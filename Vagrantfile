@@ -40,19 +40,17 @@ def sudo_warnings
   # exit
 end
 
-
-def vvv_is_docker_present()
+def vvv_is_docker_present?
   VagrantPlugins::DockerProvider::Driver.new.execute("docker", "version")
   return true
 rescue Vagrant::Errors::CommandUnavailable
   return false
 end
 
-def vvv_is_parallels_present()
-  VagrantPlugins::DockerProvider::Driver.new.execute("prctl", "version")
-  return true
-rescue Vagrant::Errors::CommandUnavailable
-  return false
+def hosts_updater_plugin_present?
+  !Vagrant.has_plugin?('vagrant-hostsupdater') &&
+    !Vagrant.has_plugin?('vagrant-goodhosts') &&
+    !Vagrant.has_plugin?('vagrant-hostsmanager')
 end
 
 vagrant_dir = __dir__
@@ -234,7 +232,7 @@ defaults['provider'] = 'virtualbox'
 
 # if Arm default to docker then parallels
 if Etc.uname[:version].include? 'ARM64'
-  if vvv_is_docker_present()
+  if vvv_is_docker_present?
     defaults['provider'] = 'docker'
   else
     defaults['provider'] = 'parallels'
@@ -431,7 +429,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   # Auto Download Vagrant plugins, supported from Vagrant 2.2.0
-  unless Vagrant.has_plugin?('vagrant-hostsupdater') && Vagrant.has_plugin?('vagrant-goodhosts') && Vagrant.has_plugin?('vagrant-hostsmanager')
+  if vvv_config['general']['skip_hosts_update']
+    config.vagrant.plugins = []
+  elsif hosts_updater_plugin_present?
     if File.file?(File.join(vagrant_dir, 'vagrant-goodhosts.gem'))
       system('vagrant plugin install ' + File.join(vagrant_dir, 'vagrant-goodhosts.gem'))
       File.delete(File.join(vagrant_dir, 'vagrant-goodhosts.gem'))
@@ -931,6 +931,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     # Pass the found host names to the hostsupdater plugin so it can perform magic.
     config.hostsupdater.aliases = vvv_config['hosts']
     config.hostsupdater.remove_on_suspend = true
+  elsif vvv_config['general']['skip_hosts_update']
+    # Nothing to do
   elsif %w[up halt resume suspend status provision reload].include? ARGV[0]
     puts ""
     puts " X ! There is no hosts file vagrant plugin installed!"
